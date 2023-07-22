@@ -1,5 +1,5 @@
 <h1 align="center">Hi 👋, I'm Ivan Barros</h1>
-<h3 align="center">A passionate Jr. developer from Valparaiso, Chile</h3>
+<h3 align="center">A passionate Developer Junior from Valparaiso, Chile</h3>
 
 <p align="left"> <img src="https://komarev.com/ghpvc/?username=ivanbarros96&label=Profile%20views&color=0e75b6&style=flat" alt="ivanbarros96" /> </p>
 
