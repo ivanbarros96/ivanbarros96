@@ -1,5 +1,5 @@
 <h1 align="center">Hi 👋, I'm Ivan Barros</h1>
-<h3 align="center">A passionate Developer Junior from Valparaiso, Chile</h3>
+<h3 align="center">A passionate developer Junior from Valparaiso, Chile</h3>
 
 <p align="left"> <img src="https://komarev.com/ghpvc/?username=ivanbarros96&label=Profile%20views&color=0e75b6&style=flat" alt="ivanbarros96" /> </p>
 
@@ -20,3 +20,5 @@
 <p><img align="left" src="https://github-readme-stats.vercel.app/api/top-langs?username=ivanbarros96&show_icons=true&locale=en&layout=compact" alt="ivanbarros96" /></p>
 
 <p>&nbsp;<img align="center" src="https://github-readme-stats.vercel.app/api?username=ivanbarros96&show_icons=true&locale=en" alt="ivanbarros96" /></p>
+
+<p><img align="center" src="https://github-readme-streak-stats.herokuapp.com/?user=ivanbarros96&" alt="ivanbarros96" /></p>
