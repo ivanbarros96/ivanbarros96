@@ -7,7 +7,7 @@
 
 - 💬 Ask me about **t-sql, Excel, Html, Css and JS**
 
-- 📫 How to reach me **ivan.dariobc@hotmail.com**
+- 📫 How to reach me **ivan.bc@outlook.es**
 
 <h3 align="left">Connect with me:</h3>
 <p align="left">
