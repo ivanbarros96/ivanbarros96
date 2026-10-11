@@ -67,3 +67,11 @@ test("rechaza dos proyectos con la misma URL", () => {
     /misma URL/
   );
 });
+
+test("acepta la URL de la API REST y la reduce a la base", () => {
+  const [p] = parseProjects(
+    { projects: [project("x", "A")] },
+    { A_URL: "https://aaaa.supabase.co/rest/v1/", A_KEY: "k" }
+  );
+  assert.equal(p.url, "https://aaaa.supabase.co");
+});

@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
 import { loadProjects } from "./config.js";
+import { createHttpApp } from "./http.js";
 import { createServer } from "./server.js";
 
 // Claude Code puede lanzar el proceso desde cualquier carpeta, así que
@@ -13,13 +14,25 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
 dotenv.config({ path: path.join(rootDir, ".env"), quiet: true });
 
-const projects = loadProjects(path.join(rootDir, "projects.json"));
-const server = createServer(projects);
-
-await server.connect(new StdioServerTransport());
-
-// STDOUT está reservado para el protocolo MCP; los logs van a STDERR.
-console.error(
-  `supabase-multi-mcp listo con ${projects.length} proyecto(s): ` +
-  projects.map(p => p.id).join(", ")
+const projects = loadProjects(
+  process.env.PROJECTS_FILE ?? path.join(rootDir, "projects.json")
 );
+const summary = `${projects.length} proyecto(s): ${projects.map(p => p.id).join(", ")}`;
+
+if (process.env.MCP_TRANSPORT === "http") {
+  const port = Number(process.env.PORT ?? 3000);
+  const host = process.env.HOST ?? "0.0.0.0";
+  const app = createHttpApp(projects, { authToken: process.env.MCP_AUTH_TOKEN ?? "" });
+
+  app.listen(port, host, () => {
+    console.error(`supabase-multi-mcp (HTTP) en http://${host}:${port}/mcp con ${summary}`);
+  });
+
+  const shutdown = () => app.close(() => process.exit(0));
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
+} else {
+  await createServer(projects).connect(new StdioServerTransport());
+  // STDOUT está reservado para el protocolo MCP; los logs van a STDERR.
+  console.error(`supabase-multi-mcp listo con ${summary}`);
+}

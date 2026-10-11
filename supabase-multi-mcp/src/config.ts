@@ -52,7 +52,10 @@ export function parseProjects(
     }
     ids.add(project.id);
 
-    const url = env[project.urlEnv]?.trim().replace(/\/+$/, "");
+    // Se acepta también la URL de la API REST (…/rest/v1/) y se reduce a la base.
+    const url = env[project.urlEnv]?.trim()
+      .replace(/\/+$/, "")
+      .replace(/\/rest\/v1$/, "");
     const key = env[project.keyEnv]?.trim();
 
     if (!url || !key) {

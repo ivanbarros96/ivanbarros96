@@ -22,6 +22,9 @@ type Fetch = typeof fetch;
 export type ServerOptions = {
   fetch?: Fetch;
   now?: () => number;
+  // En modo HTTP se crea un McpServer por petición; compartir el estado
+  // mantiene los clientes y los tokens de borrado entre peticiones.
+  state?: ServerState;
 };
 
 type Entry = {
@@ -34,6 +37,32 @@ type PendingDelete = {
   count: number;
   expiresAt: number;
 };
+
+export type ServerState = {
+  fetch: Fetch;
+  entries: Map<string, Entry>;
+  pendingDeletes: Map<string, PendingDelete>;
+};
+
+export function createState(
+  projects: ResolvedProject[],
+  options: { fetch?: Fetch } = {}
+): ServerState {
+  const fetchImpl: Fetch = options.fetch ?? fetch;
+
+  const entries = new Map<string, Entry>();
+  for (const project of projects) {
+    entries.set(project.id, {
+      project,
+      client: createClient(project.url, project.key, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: fetchImpl }
+      })
+    });
+  }
+
+  return { fetch: fetchImpl, entries, pendingDeletes: new Map() };
+}
 
 function jsonResult(value: unknown) {
   return {
@@ -65,20 +94,9 @@ export function createServer(
   options: ServerOptions = {}
 ): McpServer {
   const now = options.now ?? Date.now;
-  const fetchImpl: Fetch = options.fetch ?? fetch;
-
-  const entries = new Map<string, Entry>();
-  for (const project of projects) {
-    entries.set(project.id, {
-      project,
-      client: createClient(project.url, project.key, {
-        auth: { persistSession: false, autoRefreshToken: false },
-        global: { fetch: fetchImpl }
-      })
-    });
-  }
-
-  const pendingDeletes = new Map<string, PendingDelete>();
+  const state = options.state ?? createState(projects, options);
+  const { entries, pendingDeletes } = state;
+  const fetchImpl = state.fetch;
 
   function getEntry(projectId: string): Entry {
     const entry = entries.get(projectId);
