@@ -1,0 +1,18 @@
+{
+  "projects": [
+    {
+      "id": "somos-luz",
+      "name": "Somos Luz",
+      "urlEnv": "SUPABASE_SOMOS_LUZ_URL",
+      "keyEnv": "SUPABASE_SOMOS_LUZ_KEY"
+    },
+    {
+      "id": "cliente-1",
+      "name": "Cliente 1",
+      "urlEnv": "SUPABASE_CLIENTE_1_URL",
+      "keyEnv": "SUPABASE_CLIENTE_1_KEY",
+      "allowedTables": ["pedidos", "clientes"],
+      "readOnly": true
+    }
+  ]
+}
