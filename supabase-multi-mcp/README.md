@@ -129,6 +129,39 @@ carpeta del MCP, así que Claude Code puede lanzarlo desde cualquier directorio.
 Abre Claude Code en cualquier proyecto y ejecuta `/mcp` para verificar que
 `supabase-multi-mcp` aparece conectado.
 
+## Despliegue en un VPS (modo HTTP)
+
+Con `MCP_TRANSPORT=http` el servidor escucha en `/mcp` y exige la cabecera
+`Authorization: Bearer <MCP_AUTH_TOKEN>` (mínimo 32 caracteres). `/health`
+responde sin autenticación y sin datos, para el healthcheck.
+
+En el VPS (por SSH o el terminal del panel de Hostinger):
+
+```bash
+git clone -b claude/supabase-multi-mcp-server-yhvmod https://github.com/ivanbarros96/ivanbarros96.git
+cd ivanbarros96/supabase-multi-mcp
+cp .env.example .env && cp projects.example.json projects.json
+openssl rand -hex 32          # copia el resultado en MCP_AUTH_TOKEN
+nano .env                     # URLs, claves, token, dominio, red de Traefik
+nano projects.json
+chmod 600 .env
+docker compose up -d --build
+docker compose logs -f        # debe decir "supabase-multi-mcp (HTTP) ... N proyecto(s)"
+```
+
+`docker-compose.yml` asume que Traefik ya está en el servidor (como en la
+plantilla n8n de Hostinger). Comprueba la red y el certresolver con
+`docker network ls` y las etiquetas del contenedor de n8n, y crea un registro
+DNS `A` de `MCP_DOMAIN` apuntando a la IP del VPS.
+
+Conectar Claude Code (terminal o escritorio):
+
+```bash
+claude mcp add --scope user --transport http supabase-multi https://mcp.tudominio.com/mcp --header "Authorization: Bearer TU_TOKEN"
+```
+
+Para actualizar: `git pull && docker compose up -d --build`.
+
 ## Primeras pruebas
 
 1. «Usa `list_projects` y muéstrame los proyectos configurados. No modifiques datos.»
