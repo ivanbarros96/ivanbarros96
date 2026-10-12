@@ -71,6 +71,12 @@ export function createHttpApp(
     const url = new URL(req.url ?? "/", "http://localhost");
     const { pathname } = url;
 
+    // Una línea por petición (sin cabeceras ni cuerpo) para diagnosticar conexiones.
+    if (pathname !== "/health") {
+      const agent = String(req.headers["user-agent"] ?? "-").slice(0, 60);
+      res.on("finish", () => console.error(`${req.method} ${pathname} -> ${res.statusCode} [${agent}]`));
+    }
+
     if (pathname === "/health" && req.method === "GET") {
       sendJson(res, 200, { ok: true });
       return;

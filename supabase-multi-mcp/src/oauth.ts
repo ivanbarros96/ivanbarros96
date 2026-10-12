@@ -281,12 +281,14 @@ ${error ? `<p class="err">${escapeHtml(error)}</p>` : ""}
       checked = validateAuthorize(params);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Petición no válida";
+      console.error(`OAuth /authorize rechazado: ${message}`);
       page(res, 400, "Error", `<h1>No se puede autorizar</h1><p class="err">${escapeHtml(message)}</p>`);
       return;
     }
     const { client, redirectUri, problem } = checked;
     const state = params.get("state");
     if (problem) {
+      console.error(`OAuth /authorize: ${problem}`);
       redirectWith(res, redirectUri, { error: problem, state });
       return;
     }
@@ -297,6 +299,7 @@ ${error ? `<p class="err">${escapeHtml(error)}</p>` : ""}
     }
 
     if (params.get("decision") !== "allow") {
+      console.error("OAuth /authorize: cancelado por el usuario");
       redirectWith(res, redirectUri, { error: "access_denied", state });
       return;
     }
@@ -308,6 +311,7 @@ ${error ? `<p class="err">${escapeHtml(error)}</p>` : ""}
     }
     if (!safeEqual(params.get("password") ?? "", options.password)) {
       recordFailure(ip);
+      console.error(`OAuth /authorize: contraseña incorrecta desde ${ip}`);
       consentPage(res, client, params, "Contraseña incorrecta.");
       return;
     }
@@ -378,6 +382,7 @@ ${error ? `<p class="err">${escapeHtml(error)}</p>` : ""}
     }
     const name = typeof meta.client_name === "string" ? meta.client_name.slice(0, 100) : undefined;
     const issuedAt = seconds();
+    console.error(`OAuth /register: "${name ?? "sin nombre"}", ${method}, ${uris.map(u => new URL(u).host).join(" ")}`);
     const clientId = sign({ typ: "client", r: uris, n: name, a: method, iat: issuedAt });
     sendJson(res, 201, {
       client_id: clientId,
@@ -466,6 +471,7 @@ ${error ? `<p class="err">${escapeHtml(error)}</p>` : ""}
       } catch (error) {
         if (res.headersSent) return true;
         if (error instanceof OAuthError) {
+          console.error(`OAuth ${pathname}: ${error.code} (${error.message})`);
           sendJson(res, error.status, { error: error.code, error_description: error.message });
         } else {
           console.error("Error en OAuth:", error);
