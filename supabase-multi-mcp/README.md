@@ -162,6 +162,30 @@ claude mcp add --scope user --transport http supabase-multi https://mcp.tudomini
 
 Para actualizar: `git pull && docker compose up -d --build`.
 
+### Conector personalizado de Claude (OAuth)
+
+Los conectores de claude.ai (Chat, escritorio y móvil) no admiten cabeceras
+fijas, así que el servidor incluye un servidor OAuth 2.1 mínimo para un solo
+usuario. Se activa solo cuando conoce su URL pública (`MCP_DOMAIN` o
+`PUBLIC_URL`) y convive con el token fijo de Claude Code.
+
+1. En Claude: *Configuración → Conectores → Agregar conector personalizado*.
+   Nombre: `supabase-multi`. URL: `https://mcp.tudominio.com/mcp`.
+2. Claude abre la pantalla «Autorizar acceso»: escribe la contraseña y pulsa
+   *Autorizar*. La contraseña es `OAUTH_PASSWORD` o, si no la defines,
+   `MCP_AUTH_TOKEN`.
+
+Seguridad:
+
+- Solo se entregan códigos a `https://claude.ai/api/mcp/auth_callback`,
+  `https://claude.com/api/mcp/auth_callback` y a `localhost`.
+- PKCE (S256) obligatorio; cada código vale una vez y caduca a los 5 minutos.
+- Tras 5 contraseñas fallidas desde una IP, se bloquea 15 minutos.
+- Los tokens van firmados con una clave derivada de `MCP_AUTH_TOKEN`: el
+  acceso dura 1 hora y la renovación, 30 días. No se guardan en disco.
+- Para revocar todos los accesos OAuth, cambia `MCP_AUTH_TOKEN` y vuelve a
+  conectar Claude Code y el conector.
+
 ## Primeras pruebas
 
 1. «Usa `list_projects` y muéstrame los proyectos configurados. No modifiques datos.»

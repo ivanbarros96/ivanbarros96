@@ -4,6 +4,7 @@ import { createServer as createHttpServer, type IncomingMessage, type Server } f
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 import type { ResolvedProject } from "./config.js";
+import { createOAuth, type OAuthOptions } from "./oauth.js";
 import { createServer, createState, type ServerOptions } from "./server.js";
 
 export const MIN_TOKEN_LENGTH = 32;
@@ -11,17 +12,17 @@ const MAX_BODY_BYTES = 1024 * 1024;
 
 export type HttpOptions = ServerOptions & {
   authToken: string;
+  // Si se indica, activa OAuth para conectores de claude.ai.
+  oauth?: Omit<OAuthOptions, "secret" | "now">;
 };
 
 function digest(value: string) {
   return createHash("sha256").update(value).digest();
 }
 
-function isAuthorized(req: IncomingMessage, expected: Buffer) {
-  const header = req.headers.authorization ?? "";
-  const match = /^Bearer\s+(.+)$/i.exec(header);
-  // Comparar resúmenes de igual longitud evita filtrar el token por tiempos.
-  return match !== null && timingSafeEqual(digest(match[1].trim()), expected);
+function bearerToken(req: IncomingMessage) {
+  const match = /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? "");
+  return match === null ? null : match[1].trim();
 }
 
 async function readJson(req: IncomingMessage): Promise<unknown> {
@@ -53,22 +54,39 @@ export function createHttpApp(
 
   const expected = digest(options.authToken);
   const state = options.state ?? createState(projects, options);
+  const oauth = options.oauth
+    ? createOAuth({ ...options.oauth, secret: options.authToken, now: options.now })
+    : undefined;
+
+  // Vale el token fijo (Claude Code) o un access token OAuth (claude.ai).
+  function isAuthorized(req: IncomingMessage) {
+    const token = bearerToken(req);
+    if (token === null) return false;
+    // Comparar resúmenes de igual longitud evita filtrar el token por tiempos.
+    if (timingSafeEqual(digest(token), expected)) return true;
+    return oauth?.verifyAccessToken(token) ?? false;
+  }
 
   return createHttpServer(async (req, res) => {
-    const { pathname } = new URL(req.url ?? "/", "http://localhost");
+    const url = new URL(req.url ?? "/", "http://localhost");
+    const { pathname } = url;
 
     if (pathname === "/health" && req.method === "GET") {
       sendJson(res, 200, { ok: true });
       return;
     }
 
+    if (oauth && pathname !== "/mcp" && await oauth.handle(req, res, url)) return;
+
     if (pathname !== "/mcp") {
       sendJson(res, 404, { error: "not_found" });
       return;
     }
 
-    if (!isAuthorized(req, expected)) {
-      res.setHeader("www-authenticate", "Bearer");
+    if (!isAuthorized(req)) {
+      res.setHeader("www-authenticate", oauth
+        ? `Bearer resource_metadata="${oauth.resourceMetadataUrl}"`
+        : "Bearer");
       sendJson(res, 401, rpcError("Unauthorized"));
       return;
     }

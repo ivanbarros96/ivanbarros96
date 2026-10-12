@@ -22,10 +22,18 @@ const summary = `${projects.length} proyecto(s): ${projects.map(p => p.id).join(
 if (process.env.MCP_TRANSPORT === "http") {
   const port = Number(process.env.PORT ?? 3000);
   const host = process.env.HOST ?? "0.0.0.0";
-  const app = createHttpApp(projects, { authToken: process.env.MCP_AUTH_TOKEN ?? "" });
+  const authToken = process.env.MCP_AUTH_TOKEN ?? "";
+  // OAuth (conectores de claude.ai) se activa al conocer la URL pública.
+  const publicUrl = process.env.PUBLIC_URL ||
+    (process.env.MCP_DOMAIN ? `https://${process.env.MCP_DOMAIN}` : "");
+  const oauth = publicUrl
+    ? { issuer: publicUrl, password: process.env.OAUTH_PASSWORD || authToken }
+    : undefined;
+  const app = createHttpApp(projects, { authToken, oauth });
 
   app.listen(port, host, () => {
     console.error(`supabase-multi-mcp (HTTP) en http://${host}:${port}/mcp con ${summary}`);
+    console.error(oauth ? `OAuth activo en ${oauth.issuer}` : "OAuth desactivado (sin PUBLIC_URL ni MCP_DOMAIN)");
   });
 
   const shutdown = () => app.close(() => process.exit(0));
