@@ -40,6 +40,69 @@ La aprobación humana real la da Claude Code: **no añadas `delete_record` ni
 `update_record` a la lista de herramientas permitidas automáticamente**, para
 que Claude Code te pida confirmación cada vez.
 
+## Herramientas de gestión (Management API)
+
+Si un proyecto tiene `accessTokenEnv` en `projects.json`, el MCP añade
+herramientas que usan la [Management API](https://api.supabase.com/api/v1) con
+el **token personal** (`sbp_...`) de la cuenta dueña de ese proyecto. Las
+herramientas solo aparecen si al menos un proyecto tiene token, y
+`list_projects` indica cuáles lo tienen (`management: true`).
+
+| Herramienta | Qué hace |
+|---|---|
+| `get_project` | Región, versión de Postgres, estado y salud de cada servicio. |
+| `execute_sql` | SQL de **solo lectura**, con el usuario de solo lectura de Supabase: la base de datos rechaza escrituras. |
+| `describe_tables` | Columnas, tipos, claves, RLS, nº de políticas y filas estimadas. |
+| `list_policies` | Políticas RLS. |
+| `list_db_functions` | Funciones y procedimientos (RPC), opcionalmente con su código. |
+| `list_triggers` | Triggers con su definición. |
+| `list_extensions` | Extensiones instaladas o disponibles. |
+| `list_migrations` | Migraciones aplicadas. |
+| `list_backups` | Copias de seguridad y PITR. |
+| `get_logs` | Logs por servicio (api, postgres, auth, storage, realtime, edge-function, edge-function-runtime), ventana máx. 24 h. |
+| `query_logs` | SQL (ClickHouse) sobre los logs. |
+| `get_advisors` | Avisos de seguridad o rendimiento. |
+| `generate_typescript_types` | Tipos TypeScript del esquema. |
+| `get_publishable_keys` | URL y claves **públicas** (publishable/anon). Nunca las secretas. |
+| `list_storage_buckets` | Buckets de Storage. |
+| `list_edge_functions` / `get_edge_function` | Lista y descarga el código de las Edge Functions. |
+| `list_edge_function_secrets` | Nombres de los secretos (nunca los valores). |
+| `execute_sql_write` | SQL que modifica datos. **Dos pasos.** |
+| `apply_migration` | DDL registrado como migración; la previsualización muestra la última copia de seguridad. **Dos pasos.** |
+| `deploy_edge_function` | Crea o actualiza una Edge Function. **Dos pasos.** |
+| `delete_edge_function` | Elimina una Edge Function. **Dos pasos.** |
+
+**Dos pasos:** la primera llamada (sin `confirmation_token`) no cambia nada:
+devuelve una previsualización con avisos (DROP, TRUNCATE, DELETE/UPDATE sin
+WHERE, desactivar RLS, permisos, esquemas internos…) y un token de un solo uso,
+válido 10 minutos y ligado a los argumentos exactos. La segunda llamada, con el
+token, ejecuta. Igual que con el borrado, deja que Claude te pida permiso para
+estas herramientas.
+
+**No incluidas a propósito:** crear, pausar, restaurar o borrar proyectos,
+ramas (de pago), cambiar la configuración de Auth y escribir valores de
+secretos (pasarían por el chat).
+
+Seguridad:
+
+- Un token personal da acceso a **todos** los proyectos de esa cuenta; el MCP
+  solo lo usa con los proyectos configurados, y cada proyecto envía únicamente
+  el token de su `accessTokenEnv`.
+- Con `allowedTables` el SQL directo se desactiva (no se puede garantizar la
+  lista); con `readOnly`, las herramientas de escritura.
+- Los resultados de SQL y logs se marcan como datos no fiables para que el
+  modelo no siga instrucciones escritas dentro de los datos.
+
+Para activarlas, crea un token en
+[supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens)
+con cada cuenta, guárdalo en `.env` y añade al proyecto en `projects.json`:
+
+```json
+{ "id": "somos-luz", "...": "...", "accessTokenEnv": "SOMOS_LUZ_ACCESS_TOKEN" }
+```
+
+Dos proyectos de la misma cuenta pueden compartir la misma variable.
+
 ## Instalación en Windows
 
 Requisitos: [Node.js LTS](https://nodejs.org/en/download) (comprueba con
@@ -200,4 +263,7 @@ escrituras, y hazlo primero sobre una tabla de pruebas.
 - Solo trabaja con el esquema `public` expuesto por la API REST de Supabase.
 - `list_tables` depende del esquema OpenAPI de PostgREST; si lo tienes
   desactivado, indica el nombre de la tabla directamente.
-- No ejecuta SQL arbitrario ni cambia el esquema (sin migraciones).
+- Sin `accessTokenEnv`, el proyecto solo tiene las herramientas de datos: no
+  ejecuta SQL ni cambia el esquema.
+- La detección de SQL peligroso es heurística (no analiza SQL dinámico ni
+  cadenas complejas); la protección real es tu confirmación.

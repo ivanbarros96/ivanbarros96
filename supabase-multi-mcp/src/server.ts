@@ -5,6 +5,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import type { ResolvedProject } from "./config.js";
+import { registerManagementTools, type PendingChange } from "./management.js";
+import { errorResult, jsonResult } from "./results.js";
 import {
   applyFilters,
   filterSchema,
@@ -22,6 +24,8 @@ type Fetch = typeof fetch;
 export type ServerOptions = {
   fetch?: Fetch;
   now?: () => number;
+  // URL de la Management API (solo se cambia en las pruebas).
+  managementApiUrl?: string;
   // En modo HTTP se crea un McpServer por petición; compartir el estado
   // mantiene los clientes y los tokens de borrado entre peticiones.
   state?: ServerState;
@@ -42,6 +46,7 @@ export type ServerState = {
   fetch: Fetch;
   entries: Map<string, Entry>;
   pendingDeletes: Map<string, PendingDelete>;
+  pendingChanges: Map<string, PendingChange>;
 };
 
 export function createState(
@@ -61,26 +66,7 @@ export function createState(
     });
   }
 
-  return { fetch: fetchImpl, entries, pendingDeletes: new Map() };
-}
-
-function jsonResult(value: unknown) {
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }]
-  };
-}
-
-function errorResult(error: unknown) {
-  let message = "Error desconocido";
-  if (error instanceof Error) {
-    message = error.message;
-  } else if (
-    typeof error === "object" && error !== null &&
-    typeof (error as { message?: unknown }).message === "string"
-  ) {
-    message = (error as { message: string }).message;
-  }
-  return { ...jsonResult({ ok: false, error: message }), isError: true };
+  return { fetch: fetchImpl, entries, pendingDeletes: new Map(), pendingChanges: new Map() };
 }
 
 function fingerprint(projectId: string, table: string, filters: Filter[]) {
@@ -149,7 +135,9 @@ export function createServer(
       id: p.id,
       name: p.name,
       readOnly: p.readOnly ?? false,
-      allowedTables: p.allowedTables ?? "todas"
+      allowedTables: p.allowedTables ?? "todas",
+      // true si tiene token de gestión: SQL, migraciones, logs, Edge Functions…
+      management: Boolean(p.accessToken)
     })))
   );
 
@@ -435,6 +423,16 @@ export function createServer(
       }
     }
   );
+
+  if (projects.some(p => p.accessToken)) {
+    registerManagementTools(server, projects, {
+      projectId,
+      fetch: fetchImpl,
+      now,
+      pendingChanges: state.pendingChanges,
+      apiUrl: options.managementApiUrl
+    });
+  }
 
   return server;
 }

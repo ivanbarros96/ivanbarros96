@@ -14,7 +14,10 @@ const projectSchema = z.object({
   // Si se indica, solo estas tablas serán accesibles en el proyecto.
   allowedTables: z.array(z.string().regex(identifier)).min(1).optional(),
   // Si es true, se bloquean inserciones, actualizaciones y borrados.
-  readOnly: z.boolean().optional()
+  readOnly: z.boolean().optional(),
+  // Variable con el token personal (sbp_...) de la cuenta dueña del proyecto.
+  // Activa las herramientas de gestión: SQL, migraciones, logs, funciones…
+  accessTokenEnv: z.string().regex(/^[A-Z_][A-Z0-9_]*$/, "accessTokenEnv debe ser un nombre de variable en mayúsculas.").optional()
 });
 
 const fileSchema = z.object({
@@ -26,6 +29,7 @@ export type ProjectConfig = z.infer<typeof projectSchema>;
 export type ResolvedProject = ProjectConfig & {
   url: string;
   key: string;
+  accessToken?: string;
 };
 
 const SUPABASE_URL = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i;
@@ -79,7 +83,18 @@ export function parseProjects(
     }
     urls.set(url, project.id);
 
-    return { ...project, url, key };
+    if (!project.accessTokenEnv) return { ...project, url, key };
+
+    const accessToken = env[project.accessTokenEnv]?.trim();
+    if (!accessToken) {
+      throw new Error(
+        `Falta el token de gestión del proyecto ${project.id} (${project.accessTokenEnv}).`
+      );
+    }
+    if (!SUPABASE_URL.test(url)) {
+      throw new Error(`Las herramientas de gestión solo funcionan con proyectos *.supabase.co (${project.id}).`);
+    }
+    return { ...project, url, key, accessToken };
   });
 }
 
