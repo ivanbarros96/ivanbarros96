@@ -69,9 +69,20 @@ function memoryProvider(metadata: Partial<OAuthClientProvider["clientMetadata"]>
   return provider;
 }
 
+// Lee los campos ocultos del formulario igual que un navegador.
+async function consentForm(authorizationUrl: URL) {
+  const html = await (await fetch(authorizationUrl)).text();
+  const form = new URLSearchParams();
+  for (const [, name, value] of html.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)">/g)) {
+    form.set(name, value.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code))));
+  }
+  return form;
+}
+
 // Rellena la pantalla de autorización como lo haría el usuario.
 async function submitConsent(authorizationUrl: URL, password: string, extra: Record<string, string> = {}) {
-  const form = new URLSearchParams(authorizationUrl.searchParams);
+  const form = await consentForm(authorizationUrl);
+  assert.ok(form.get("client_id"), "la pantalla no se mostró");
   form.set("password", password);
   form.set("decision", "allow");
   for (const [k, v] of Object.entries(extra)) form.set(k, v);
@@ -175,7 +186,7 @@ test("contraseña incorrecta: no hay código", async () => {
 test("cancelar devuelve access_denied", async () => {
   const provider = memoryProvider();
   await auth(provider, { serverUrl: `${base}/mcp` });
-  const form = new URLSearchParams(provider.authorizationUrl!.searchParams);
+  const form = await consentForm(provider.authorizationUrl!);
   form.set("decision", "deny");
   const res = await fetch(`${base}/authorize`, { method: "POST", body: form, redirect: "manual" });
   assert.equal(new URL(res.headers.get("location")!).searchParams.get("error"), "access_denied");

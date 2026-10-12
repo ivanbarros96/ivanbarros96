@@ -230,7 +230,7 @@ input{background:#18181b;color:#f4f4f5;border-color:#3f3f46}.ok{background:#f4f4
   }
 
   function consentPage(res: ServerResponse, client: Client, params: URLSearchParams, error?: string) {
-    const fields = ["client_id", "redirect_uri", "code_challenge", "code_challenge_method", "state", "scope", "resource"]
+    const fields = ["response_type", "client_id", "redirect_uri", "code_challenge", "code_challenge_method", "state", "scope", "resource"]
       .map(name => params.get(name) === null ? "" :
         `<input type="hidden" name="${name}" value="${escapeHtml(params.get(name)!)}">`)
       .join("");
